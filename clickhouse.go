@@ -1,4 +1,4 @@
-package telegraf_beget_clickhouse_plugin
+package clickhouse
 
 import (
 	"time"

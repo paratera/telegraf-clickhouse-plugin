@@ -3,7 +3,14 @@
 
 ## 1. How to use
 
-### 1.1. Enable this plugin
+## 1.1. add plugin files to telegraf repository.
+
+```bash
+# mkdir -p telegraf/plugins/outputs/clickhouse
+# cp clickhouse.go telegraf/plugins/outputs/clickhouse
+```
+
+### 1.2. Enable this plugin
 
 Append plugin into plugins/outpus/all/all.go
 
