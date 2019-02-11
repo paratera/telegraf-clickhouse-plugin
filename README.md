@@ -22,7 +22,7 @@ Append plugin into plugins/outpus/all/all.go
 )
 ```
 
-### 1.2. build telegraf
+### 1.3. build telegraf
 
 ```bash
 # cd telegraf
