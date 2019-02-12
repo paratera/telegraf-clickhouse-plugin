@@ -107,9 +107,3 @@ func (cms *clickhouseMetrics) GetRowsByColumns(columns []string) clickhouse.Rows
 	return rows
 }
 
-// register plugin.
-func init() {
-	outputs.Add("clickhouse", func() telegraf.Output {
-		return newClickhouse()
-	})
-}
