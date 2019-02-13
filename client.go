@@ -30,6 +30,10 @@ type ClickhouseClient struct {
 	db clickhouse.Clickhouse
 }
 
+func newClickhouse() *ClickhouseClient {
+	return &ClickhouseClient{}
+}
+
 func (c *ClickhouseClient) Connect() error {
 	var err error
 
