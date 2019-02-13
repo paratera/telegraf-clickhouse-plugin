@@ -88,12 +88,16 @@ hosts = ["127.0.0.1:9001","127.0.0.1:9002"]
 
 func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	err = nil
+	var batchMetrics []clickhouseMetrics
 
 	for _, metric := range metrics {
 		//table := c.Database + "." + metric.Name()
 		//table := c.database + "." + c.tableName
+		var tmpClickhouseMetrics clickhouseMetrics
 
-		fmt.Println(newClickhouseMetrics(metric))
+		tmpClickhouseMetrics = *newClickhouseMetrics(metric)
+
+		batchMetrics = append(batchMetrics, tmpClickhouseMetrics)
 	}
 	/*
 		for table, insert := range inserts {
@@ -114,5 +118,6 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 
 		}
 	*/
+	fmt.Println(batchMetrics)
 	return err
 }
