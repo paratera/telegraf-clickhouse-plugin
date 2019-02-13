@@ -1,14 +1,13 @@
 package clickhouse
 
 import (
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/influxdata/telegraf"
 	"github.com/juju/errors"
-	clickhouse "github.com/roistat/go-clickhouse"
+	"github.com/kshvakov/clickhouse"
 )
 
 type ClickhouseClient struct {
@@ -30,9 +29,7 @@ type ClickhouseClient struct {
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 
-	db *sql.DB
-
-	connection *clickhouse.Conn
+	db clickhouse.Clickhouse
 }
 
 // new Clickhouse client
@@ -105,12 +102,7 @@ func (ch *ClickhouseClient) SetDBI() {
 
 func (c *ClickhouseClient) Connect() error {
 	var err error
-	c.db, err = sql.Open("clickhouse", c.dbi)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	err = c.db.Ping()
+	c.db, err = clickhouse.OpenDirect(c.dbi)
 	if err != nil {
 		return errors.Trace(err)
 	}
