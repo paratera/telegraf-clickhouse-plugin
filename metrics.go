@@ -33,6 +33,11 @@ func newClickhouseMetrics(metric telegraf.Metric) *clickhouseMetrics {
 		var tmpClickhouseMetric clickhouseMetric
 		var tmpTags string
 		var tmpFieldTag string
+		var tmpCurrentTime time.Time
+
+		tmpCurrentTime = time.Now()
+
+		fmt.Println("metric.Name=", metric.Name(), "tags=", metric.TagList(), "field.Key=", field.Key, "field.Value=", field.Value)
 
 		tmpClickhouseMetric.Name = fmt.Sprint("%s_%s", metric.Name(), field.Key)
 
@@ -52,6 +57,7 @@ func newClickhouseMetrics(metric telegraf.Metric) *clickhouseMetrics {
 		tmpClickhouseMetric.Val = tmpFiledValue.(float64)
 
 		tmpClickhouseMetric.Ts = metric.Time()
+		tmpClickhouseMetric.Updated = tmpCurrentTime
 		//tmpClickhouseMetric.Value
 
 		*cm = append(*cm, tmpClickhouseMetric)

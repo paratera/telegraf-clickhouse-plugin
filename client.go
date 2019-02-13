@@ -68,7 +68,7 @@ func (c *ClickhouseClient) SampleConfig() string {
 	return `
 Schema:
 > CREATE TABLE telegraf.metrics(
-	date Date DEFAULT toDate(0),
+	date Date DEFAULT toDate(ts),
 	name String,
 	tags Array(String),
 	val Float64,
