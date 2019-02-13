@@ -1,8 +1,8 @@
 package clickhouse
 
 import (
-	"github.com/influxdb/telegraf"
-	"github.com/influxdb/telegraf/plugins/outputs"
+	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/plugins/outputs"
 )
 
 // register plugin.

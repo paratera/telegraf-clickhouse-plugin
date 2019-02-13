@@ -1,11 +1,10 @@
 package clickhouse
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/influxdata/telegraf"
-	"github.com/influxdata/telegraf/plugins/outputs"
-	"github.com/roistat/go-clickhouse"
 )
 
 type (
@@ -23,87 +22,76 @@ type (
 	clickhouseMetrics []clickhouseMetric
 )
 
-func newClickhouseMetric(metric telegraf.Metric, timeShift int64) *clickhouseMetric {
-	cm := &clickhouseMetric{}
+func newClickhouseMetrics(metric telegraf.Metric) *clickhouseMetrics {
+	var fieldCount int
+	cm := new(clickhouseMetrics)
 
-	for name, value := range metric.Fields() {
-		cm.AddData(name, value, true)
+	fieldCount = len(metric.FieldList())
+
+	for _, field := range metric.FieldList() {
+		// tmp variables
+		var tmpClickhouseMetric clickhouseMetric
+		var tmpTags string
+		var tmpFieldTag string
+
+		tmpClickhouseMetric.Name = fmt.Sprint("%s_%s", metric.Name(), field.Key)
+
+		tmpFiledValue := convertField(field.Value)
+		if tmpFiledValue == nil {
+			tmpFieldTag = field.Value.(string)
+		}
+
+		tmpClickhouseMetric.Tags = append(tmpClickhouseMetric.Tags, tmpFieldTag)
+
+		for _, value := range metric.TagList() {
+			tmpTags = fmt.Sprintf("%s=%s", value.Key, value.Value)
+			tmpClickhouseMetric.Tags = append(tmpClickhouseMetric.Tags, tmpTags)
+		}
+
+		tmpClickhouseMetric.Val = tmpFiledValue.(float64)
+
+		tmpClickhouseMetric.Ts = metric.Time()
+		//tmpClickhouseMetric.Value
+
+		*cm = append(*cm, tmpClickhouseMetric)
 	}
-	for name, value := range metric.Tags() {
-		cm.AddData(name, value, true)
-	}
-
-	metricTime := metric.Time().Add(time.Duration(timeShift))
-	date := metricTime.Format("2006-01-02")
-	datetime := metricTime.Format("2006-01-02 15:04:05")
-	cm.AddData("date", date, true)
-	cm.AddData("datetime", datetime, true)
-
 	return cm
 }
-func (cm *clickhouseMetric) GetColumns() []string {
-	columns := make([]string, 0)
 
-	for column := range *cm {
-		columns = append(columns, column)
-	}
-	return columns
-}
-func (cm *clickhouseMetric) AddData(name string, value interface{}, overwrite bool) {
-	if _, exists := (*cm)[name]; !overwrite && exists {
-		return
-	}
-
-	(*cm)[name] = value
-}
-
-type clickhouseMetrics []*clickhouseMetric
-
-func (cms *clickhouseMetrics) GetColumns() []string {
-	if len(*cms) == 0 {
-		return []string{}
-	}
-
-	randomMetric := (*cms)[0] // all previous metrics are same
-	return randomMetric.GetColumns()
-}
-func (cms *clickhouseMetrics) AddMissingColumn(name string, value interface{}) {
-	for _, metric := range *cms {
-		metric.AddData(name, value, false)
-	}
-}
-func (cms *clickhouseMetrics) AddMetric(metric telegraf.Metric, timeShift int64) {
-	newMetric := newClickhouseMetric(metric, timeShift)
-
-	if len(*cms) > 0 {
-		randomMetric := (*cms)[0] // all previous metrics are same
-
-		for name := range *newMetric {
-			if _, exists := (*randomMetric)[name]; !exists {
-				cms.AddMissingColumn(name, 0)
-			}
+// convert field to a supported type or nil if unconvertible
+func convertField(v interface{}) interface{} {
+	switch v := v.(type) {
+	case float64:
+		return v
+	case int64:
+		return float64(v)
+	case bool:
+		if v {
+			return float64(1)
+		} else {
+			return float64(0)
 		}
-
-		for name := range *randomMetric {
-			if _, exists := (*newMetric)[name]; !exists {
-				newMetric.AddData(name, 0, false)
-			}
-		}
+	case int:
+		return float64(v)
+	case uint:
+		return float64(v)
+	case uint64:
+		return float64(v)
+	case int32:
+		return float64(v)
+	case int16:
+		return float64(v)
+	case int8:
+		return float64(v)
+	case uint32:
+		return float64(v)
+	case uint16:
+		return float64(v)
+	case uint8:
+		return float64(v)
+	case float32:
+		return float64(v)
+	default:
+		return nil
 	}
-
-	*cms = append(*cms, newMetric)
 }
-func (cms *clickhouseMetrics) GetRowsByColumns(columns []string) clickhouse.Rows {
-	rows := make(clickhouse.Rows, 0)
-
-	for _, metric := range *cms {
-		row := make(clickhouse.Row, 0)
-		for _, column := range columns {
-			row = append(row, (*metric)[column])
-		}
-		rows = append(rows, row)
-	}
-
-	return rows
-}
-

@@ -1,11 +1,13 @@
 package clickhouse
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/influxdata/telegraf"
+	"github.com/juju/errors"
 	clickhouse "github.com/roistat/go-clickhouse"
 )
 
@@ -13,20 +15,22 @@ type ClickhouseClient struct {
 
 	// DBI example: tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&write_timeout=20&alt_hosts=host2:9000,host3:9000
 
-	DBI       string
-	Addr      string
-	Port      int64
-	User      string
-	Password  string
-	Database  string
-	TableName string
+	dbi       string
+	addr      string
+	port      int64
+	user      string
+	password  string
+	database  string
+	tableName string
 
-	Hosts []string
+	hosts []string
 
-	TimeShift int64 `toml:"time_shift"`
+	timeShift int64 `toml:"time_shift"`
 
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
+	readTimeout  time.Duration
+	writeTimeout time.Duration
+
+	db *sql.DB
 
 	connection *clickhouse.Conn
 }
@@ -35,88 +39,82 @@ type ClickhouseClient struct {
 func newClickhouse() *ClickhouseClient {
 	ch := new(ClickhouseClient)
 
-	ch.Addr = "127.0.0.1"
-	ch.Port = 9000
-	ch.User = ""
-	ch.Password = ""
-	ch.Database = "telegraf"
-	ch.TableName = "metrics"
-	ch.Hosts = []string{}
+	ch.addr = "127.0.0.1"
+	ch.port = 9000
+	ch.user = ""
+	ch.password = ""
+	ch.database = "telegraf"
+	ch.tableName = "metrics"
+	ch.hosts = []string{}
 
-	ch.ReadTimeout = time.Second * 10
-	ch.WriteTimeout = time.Second * 20
+	ch.readTimeout = time.Second * 10
+	ch.writeTimeout = time.Second * 20
 
 	return ch
 }
 
 // set Clickhouse tcp address.
 func (ch *ClickhouseClient) SetAddr(addr string) {
-	ch.Addr = addr
+	ch.addr = addr
 }
 
 // set Clickhouse tcp port.
 func (ch *ClickhouseClient) SetPort(port int64) {
-	ch.Port = port
+	ch.port = port
 }
 
 // set Clickhouse username.
 func (ch *ClickhouseClient) SetUser(user string) {
-	ch.User = user
+	ch.user = user
 }
 
 // set Clickhouse user password.
 func (ch *ClickhouseClient) SetPassword(pass string) {
-	ch.Password = pass
+	ch.password = pass
 }
 
 // set Clickhouse database name.
 func (ch *ClickhouseClient) SetDatabase(db string) {
-	ch.Database = db
+	ch.database = db
 }
 
 // set Clickhouse table name.
 func (ch *ClickhouseClient) SetTableName(tbname string) {
-	ch.TableName = tbname
+	ch.tableName = tbname
 }
 
 // set Clichouse all hosts .
 func (ch *ClickhouseClient) SetHosts(hosts ...string) {
 	for _, v := range hosts {
-		ch.Hosts = append(ch.Hosts, v)
+		ch.hosts = append(ch.hosts, v)
 	}
 }
 
 // set Clickhouse Database Interface.
 func (ch *ClickhouseClient) SetDBI() {
-	ch.DBI = fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&read_timeout=%d&write_timeout=%d&alt_hosts=%s",
-		ch.Addr,
-		ch.Port,
-		ch.User,
-		ch.Password,
-		int(ch.ReadTimeout),
-		int(ch.WriteTimeout),
-		strings.Join(ch.Hosts, ","),
+	ch.dbi = fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&read_timeout=%d&write_timeout=%d&alt_hosts=%s",
+		ch.addr,
+		ch.port,
+		ch.user,
+		ch.password,
+		int(ch.readTimeout),
+		int(ch.writeTimeout),
+		strings.Join(ch.hosts, ","),
 	)
 }
 
 func (c *ClickhouseClient) Connect() error {
-	transport := clickhouse.NewHttpTransport()
-	transport.Timeout = c.timeout
-
-	c.connection = clickhouse.NewConn(c.URL, transport)
-
-	err := c.connection.Ping()
+	var err error
+	c.db, err = sql.Open("clickhouse", c.dbi)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	for _, create_sql := range c.SQLs {
-		query := clickhouse.NewQuery(create_sql)
-		err = query.Exec(c.connection)
-		if err != nil {
-			return err
-		}
+	err = c.db.Ping()
+	if err != nil {
+		return errors.Trace(err)
 	}
+
 	return nil
 }
 
@@ -144,38 +142,31 @@ Schema:
 
 func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	err = nil
-	inserts := make(map[string]*clickhouseMetrics)
 
 	for _, metric := range metrics {
 		//table := c.Database + "." + metric.Name()
-		table := c.Database + "." + c.TableName
+		//table := c.database + "." + c.tableName
 
-		if _, exists := inserts[table]; !exists {
-			inserts[table] = &clickhouseMetrics{}
-		}
-
-		inserts[table].AddMetric(metric, c.TimeShift)
+		fmt.Println(newClickhouseMetrics(metric))
 	}
+	/*
+		for table, insert := range inserts {
+			if len(*insert) == 0 {
+				continue
+			}
 
-	for table, insert := range inserts {
-		if len(*insert) == 0 {
-			continue
+			var query clickhouse.Query
+			query, err = clickhouse.BuildMultiInsert(table, columns, rows)
+			if err != nil {
+				continue
+			}
+
+			err = query.Exec(c.connection)
+			if err != nil {
+				continue
+			}
+
 		}
-
-		columns := insert.GetColumns()
-		rows := insert.GetRowsByColumns(columns)
-
-		var query clickhouse.Query
-		query, err = clickhouse.BuildMultiInsert(table, columns, rows)
-		if err != nil {
-			continue
-		}
-
-		err = query.Exec(c.connection)
-		if err != nil {
-			continue
-		}
-
-	}
+	*/
 	return err
 }
