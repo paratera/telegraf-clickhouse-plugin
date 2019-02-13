@@ -39,6 +39,7 @@ func newClickhouseMetrics(metric telegraf.Metric) *clickhouseMetrics {
 		tmpFiledValue := convertField(field.Value)
 		if tmpFiledValue == nil {
 			tmpFieldTag = field.Value.(string)
+			
 		}
 
 		tmpClickhouseMetric.Tags = append(tmpClickhouseMetric.Tags, tmpFieldTag)

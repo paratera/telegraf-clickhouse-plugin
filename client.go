@@ -14,17 +14,15 @@ type ClickhouseClient struct {
 
 	// DBI example: tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&write_timeout=20&alt_hosts=host2:9000,host3:9000
 
-	dbi       string
-	addr      string
-	port      int64
-	user      string
-	password  string
-	database  string
-	tableName string
-
-	hosts []string
-
-	timeShift int64 `toml:"time_shift"`
+	dbi          string
+	addr         string   `toml:"addr"`
+	port         int64    `toml:"port"`
+	user         string   `toml:"user"`
+	password     string   `toml:"password"`
+	database     string   `toml:"database"`
+	tableName    string   `toml:"tablename"`
+	isCompressed int      `toml:"compress"`
+	hosts        []string `toml:"hosts"`
 
 	readTimeout  time.Duration
 	writeTimeout time.Duration
@@ -32,76 +30,20 @@ type ClickhouseClient struct {
 	db clickhouse.Clickhouse
 }
 
-// new Clickhouse client
-func newClickhouse() *ClickhouseClient {
-	ch := new(ClickhouseClient)
-
-	ch.addr = "127.0.0.1"
-	ch.port = 9000
-	ch.user = ""
-	ch.password = ""
-	ch.database = "telegraf"
-	ch.tableName = "metrics"
-	ch.hosts = []string{}
-
-	ch.readTimeout = time.Second * 10
-	ch.writeTimeout = time.Second * 20
-
-	return ch
-}
-
-// set Clickhouse tcp address.
-func (ch *ClickhouseClient) SetAddr(addr string) {
-	ch.addr = addr
-}
-
-// set Clickhouse tcp port.
-func (ch *ClickhouseClient) SetPort(port int64) {
-	ch.port = port
-}
-
-// set Clickhouse username.
-func (ch *ClickhouseClient) SetUser(user string) {
-	ch.user = user
-}
-
-// set Clickhouse user password.
-func (ch *ClickhouseClient) SetPassword(pass string) {
-	ch.password = pass
-}
-
-// set Clickhouse database name.
-func (ch *ClickhouseClient) SetDatabase(db string) {
-	ch.database = db
-}
-
-// set Clickhouse table name.
-func (ch *ClickhouseClient) SetTableName(tbname string) {
-	ch.tableName = tbname
-}
-
-// set Clichouse all hosts .
-func (ch *ClickhouseClient) SetHosts(hosts ...string) {
-	for _, v := range hosts {
-		ch.hosts = append(ch.hosts, v)
-	}
-}
-
-// set Clickhouse Database Interface.
-func (ch *ClickhouseClient) SetDBI() {
-	ch.dbi = fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&read_timeout=%d&write_timeout=%d&alt_hosts=%s",
-		ch.addr,
-		ch.port,
-		ch.user,
-		ch.password,
-		int(ch.readTimeout),
-		int(ch.writeTimeout),
-		strings.Join(ch.hosts, ","),
-	)
-}
-
 func (c *ClickhouseClient) Connect() error {
 	var err error
+
+	c.dbi = fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&read_timeout=%d&write_timeout=%d&alt_hosts=%s&compress=%d",
+		c.addr,
+		c.port,
+		c.user,
+		c.password,
+		c.database,
+		10,
+		20,
+		strings.Join(c.hosts, ","),
+		0,
+	)
 	c.db, err = clickhouse.OpenDirect(c.dbi)
 	if err != nil {
 		return errors.Trace(err)
@@ -129,6 +71,14 @@ Schema:
 	ts DateTime,
 	updated DateTime DEFAULT now()
 ) ENGINE=MergeTree(date,(name,tags,ts),8192)
+addr = 127.0.0.1
+port = 9000
+user = ""
+password = ""
+database = ""
+tablename = ""
+compress = 0
+hosts = ["127.0.0.1:9001","127.0.0.1:9002"]
 `
 }
 
