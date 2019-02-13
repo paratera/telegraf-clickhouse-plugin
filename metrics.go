@@ -23,10 +23,10 @@ type (
 )
 
 func newClickhouseMetrics(metric telegraf.Metric) *clickhouseMetrics {
-	var fieldCount int
+	//var fieldCount int
 	cm := new(clickhouseMetrics)
 
-	fieldCount = len(metric.FieldList())
+	//fieldCount = len(metric.FieldList())
 
 	for _, field := range metric.FieldList() {
 		// tmp variables
