@@ -14,15 +14,15 @@ type ClickhouseClient struct {
 
 	// DBI example: tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&write_timeout=20&alt_hosts=host2:9000,host3:9000
 
-	dbi          string
-	addr         string   `toml:"addr"`
-	port         int64    `toml:"port"`
-	user         string   `toml:"user"`
-	password     string   `toml:"password"`
-	database     string   `toml:"database"`
-	tableName    string   `toml:"tablename"`
-	isCompressed int      `toml:"compress"`
-	hosts        []string `toml:"hosts"`
+	DBI          string
+	Addr         string   `toml:"addr"`
+	Port         int64    `toml:"port"`
+	User         string   `toml:"user"`
+	Password     string   `toml:"password"`
+	Database     string   `toml:"database"`
+	TableName    string   `toml:"tablename"`
+	IsCompressed int      `toml:"compress"`
+	Hosts        []string `toml:"hosts"`
 
 	readTimeout  time.Duration
 	writeTimeout time.Duration
@@ -37,18 +37,18 @@ func newClickhouse() *ClickhouseClient {
 func (c *ClickhouseClient) Connect() error {
 	var err error
 
-	c.dbi = fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&read_timeout=%d&write_timeout=%d&alt_hosts=%s&compress=%d",
-		c.addr,
-		c.port,
-		c.user,
-		c.password,
-		c.database,
+	c.DBI = fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&read_timeout=%d&write_timeout=%d&alt_hosts=%s&compress=%d",
+		c.Addr,
+		c.Port,
+		c.User,
+		c.Password,
+		c.Database,
 		10,
 		20,
-		strings.Join(c.hosts, ","),
+		strings.Join(c.Hosts, ","),
 		0,
 	)
-	c.db, err = clickhouse.OpenDirect(c.dbi)
+	c.db, err = clickhouse.OpenDirect(c.DBI)
 	if err != nil {
 		return errors.Trace(err)
 	}
