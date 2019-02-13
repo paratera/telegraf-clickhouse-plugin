@@ -41,23 +41,30 @@ func newClickhouseMetrics(metric telegraf.Metric) *clickhouseMetrics {
 
 		tmpFiledValue := convertField(field.Value)
 		if tmpFiledValue == nil {
-			tmpFieldTag = field.Value.(string)
-			break
+			tmpFieldTag = fmt.Sprintf("%s=%s", field.Key, field.Value.(string))
+			tmpClickhouseMetric.Tags = append(tmpClickhouseMetric.Tags, tmpFieldTag)
+			for _, value := range metric.TagList() {
+				tmpTags = fmt.Sprintf("%s=%s", value.Key, value.Value)
+				tmpClickhouseMetric.Tags = append(tmpClickhouseMetric.Tags, tmpTags)
+			}
+
+			tmpClickhouseMetric.Val = float64(0)
+			tmpClickhouseMetric.Ts = metric.Time()
+			tmpClickhouseMetric.Updated = tmpCurrentTime
+
+		} else {
+
+			for _, value := range metric.TagList() {
+				tmpTags = fmt.Sprintf("%s=%s", value.Key, value.Value)
+				tmpClickhouseMetric.Tags = append(tmpClickhouseMetric.Tags, tmpTags)
+			}
+
+			tmpClickhouseMetric.Val = tmpFiledValue.(float64)
+
+			tmpClickhouseMetric.Ts = metric.Time()
+			tmpClickhouseMetric.Updated = tmpCurrentTime
+
 		}
-
-		tmpClickhouseMetric.Tags = append(tmpClickhouseMetric.Tags, tmpFieldTag)
-
-		for _, value := range metric.TagList() {
-			tmpTags = fmt.Sprintf("%s=%s", value.Key, value.Value)
-			tmpClickhouseMetric.Tags = append(tmpClickhouseMetric.Tags, tmpTags)
-			fmt.Println("metric.Name=", metric.Name(), "tags", tmpClickhouseMetric.Tags, "field.Key=", field.Key, "field.Value=", field.Value)
-		}
-
-		tmpClickhouseMetric.Val = tmpFiledValue.(float64)
-
-		tmpClickhouseMetric.Ts = metric.Time()
-		tmpClickhouseMetric.Updated = tmpCurrentTime
-		//tmpClickhouseMetric.Value
 
 		*cm = append(*cm, tmpClickhouseMetric)
 	}
