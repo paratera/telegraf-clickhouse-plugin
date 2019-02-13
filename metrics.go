@@ -50,7 +50,7 @@ func newClickhouseMetrics(metric telegraf.Metric) *clickhouseMetrics {
 		for _, value := range metric.TagList() {
 			tmpTags = fmt.Sprintf("%s=%s", value.Key, value.Value)
 			tmpClickhouseMetric.Tags = append(tmpClickhouseMetric.Tags, tmpTags)
-			fmt.Println("metric.Name=", metric.Name(), "tags.Key=", value.Key, "tags.Value", value.Value, "field.Key=", field.Key, "field.Value=", field.Value)
+			fmt.Println("metric.Name=", metric.Name(), "tags", tmpClickhouseMetric.Tags, "field.Key=", field.Key, "field.Value=", field.Value)
 		}
 
 		tmpClickhouseMetric.Val = tmpFiledValue.(float64)
