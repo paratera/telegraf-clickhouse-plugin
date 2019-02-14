@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -27,7 +28,7 @@ type ClickhouseClient struct {
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 
-	db clickhouse.Clickhouse
+	db *sql.DB
 }
 
 func newClickhouse() *ClickhouseClient {
@@ -51,7 +52,7 @@ func (c *ClickhouseClient) Connect() error {
 		)
 	*/
 
-	c.db, err = clickhouse.OpenDirect("tcp://172.18.10.100:9000?username=&debug=true&compress=0")
+	c.db, err = sql.Open("clickhouse", "tcp://172.18.10.100:9000?username=&debug=true&compress=0")
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -125,29 +126,38 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	*/
 	//fmt.Println(batchMetrics)
 
+	if err := c.db.Ping(); err != nil {
+		return errors.Trace(err)
+	}
+
 	Tx, err := c.db.Begin()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	stmt := fmt.Sprintf("INSERT INTO %s.%s(date,name,tags,val,ts,updated) VALUES(?,?,?,?,?,?)", c.Database, c.TableName)
-	_, err = c.db.Prepare(stmt)
+	Stmt, err := Tx.Prepare(stmt)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer Stmt.Close()
 
-	block, err := c.db.Block()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	//MetricsCount := telegrafMetricsLen * clickhouseMetricLen
 	//var wg sync.WaitGroup
 	for _, metrs := range batchMetrics {
 		//wg.Add(1)
 		//go func() {
 		//defer wg.Done()
-		writeBatch(block, metrs, len(metrs))
-		if err := c.db.WriteBlock(block); err != nil {
-			fmt.Println(err.Error())
+		for _, metr := range metrs {
+			if _, err := Stmt.Exec(
+				metr.Date,
+				metr.Name,
+				clickhouse.Array(metr.Tags),
+				metr.Val,
+				metr.Ts,
+				metr.Updated,
+			); err != nil {
+				fmt.Println(err.Error())
+			}
 		}
 		//}()
 	}
