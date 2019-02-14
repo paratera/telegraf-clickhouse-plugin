@@ -3,7 +3,7 @@ package clickhouse
 import (
 	"database/sql"
 	"fmt"
-	"sync"
+	"log"
 	"time"
 
 	"github.com/influxdata/telegraf"
@@ -17,14 +17,12 @@ type ClickhouseClient struct {
 	// DBI example: tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&write_timeout=20&alt_hosts=host2:9000,host3:9000
 
 	DBI          string
-	Addr         string   `toml:"addr"`
-	Port         int64    `toml:"port"`
-	User         string   `toml:"user"`
-	Password     string   `toml:"password"`
-	Database     string   `toml:"database"`
-	TableName    string   `toml:"tablename"`
-	IsCompressed int      `toml:"compress"`
-	Hosts        []string `toml:"hosts"`
+	Addr         string `toml:"addr"`
+	Port         int64  `toml:"port"`
+	User         string `toml:"user"`
+	Database     string `toml:"database"`
+	TableName    string `toml:"tablename"`
+	IsCompressed string `toml:"compress"`
 
 	readTimeout  time.Duration
 	writeTimeout time.Duration
@@ -38,22 +36,28 @@ func newClickhouse() *ClickhouseClient {
 
 func (c *ClickhouseClient) Connect() error {
 	var err error
+	var compress string
 
-	/*
-		c.DBI = fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&read_timeout=%d&write_timeout=%d&alt_hosts=%s&compress=%d",
-			c.Addr,
-			c.Port,
-			c.User,
-			c.Password,
-			c.Database,
-			10,
-			20,
-			strings.Join(c.Hosts, ","),
-			0,
-		)
-	*/
+	switch c.IsCompressed {
+	case "0":
+		compress = "false"
+	case "1":
+		compress = "true"
+	case "on":
+		compress = "true"
+	case "off":
+		compress = "false"
+	default:
+		compress = "false"
+	}
+	c.DBI = fmt.Sprintf("tcp://%s:%d?username=%s&compress=%s&debug=true",
+		c.Addr,
+		c.Port,
+		c.User,
+		compress,
+	)
 
-	c.db, err = sql.Open("clickhouse", "tcp://172.18.10.100:9000?username=&debug=true&compress=0")
+	c.db, err = sql.Open("clickhouse", c.DBI)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -83,11 +87,9 @@ Schema:
 addr = 127.0.0.1
 port = 9000
 user = ""
-password = ""
 database = ""
 tablename = ""
 compress = 0
-hosts = ["127.0.0.1:9001","127.0.0.1:9002"]
 `
 }
 
@@ -95,75 +97,87 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	err = nil
 	var batchMetrics []clickhouseMetrics
 
-	//telegrafMetricsLen := len(metrics)
-
 	for _, metric := range metrics {
-		//table := c.Database + "." + metric.Name()
-		//table := c.database + "." + c.tableName
 		var tmpClickhouseMetrics clickhouseMetrics
 
 		tmpClickhouseMetrics = *newClickhouseMetrics(metric)
 
 		batchMetrics = append(batchMetrics, tmpClickhouseMetrics)
 	}
-	/*
-		for table, insert := range inserts {
-			if len(*insert) == 0 {
-				continue
-			}
 
-			var query clickhouse.Query
-			query, err = clickhouse.BuildMultiInsert(table, columns, rows)
-			if err != nil {
-				continue
-			}
-
-			err = query.Exec(c.connection)
-			if err != nil {
-				continue
-			}
-
+	if err = c.db.Ping(); err != nil {
+		if exception, ok := err.(*clickhouse.Exception); ok {
+			log.Printf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
+		} else {
+			log.Println(err)
 		}
-	*/
-	//fmt.Println(batchMetrics)
-
-	if err := c.db.Ping(); err != nil {
 		return errors.Trace(err)
 	}
 
+	// create database
+	stmtCreateDatabase := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", c.Database)
+	_, err = c.db.Exec(stmtCreateDatabase)
+	if err != nil {
+		log.Fatal(err)
+		return errors.Trace(err)
+	}
+
+	// create table
+	stmtCreateTable := fmt.Sprintf(`
+	CREATE TABLE %s.%s(
+		date Date DEFAULT toDate(ts),
+		name String,
+		tags Array(String),
+		val Float64,
+		ts DateTime,
+		updated DateTime DEFAULT now()
+	) ENGINE=MergeTree(date,(name,tags,ts),8192)
+	`, c.Database, c.TableName)
+	_, err = c.db.Exec(stmtCreateTable)
+	if err != nil {
+		log.Fatal(err)
+		return errors.Trace(err)
+	}
+
+	// start transaction
 	Tx, err := c.db.Begin()
 	if err != nil {
+		log.Fatal(err)
 		return errors.Trace(err)
 	}
-	stmt := fmt.Sprintf("INSERT INTO %s.%s(name,tags,val,ts,updated) VALUES(?,?,?,?,?)", c.Database, c.TableName)
-	Stmt, err := Tx.Prepare(stmt)
+
+	// Prepare stmt
+	stmtInsertData := fmt.Sprintf("INSERT INTO %s.%s(name,tags,val,ts,updated) VALUES(?,?,?,?,?)", c.Database, c.TableName)
+	Stmt, err := Tx.Prepare(stmtInsertData)
 	if err != nil {
+		log.Println(stmtInsertData)
+		log.Println(err)
 		return errors.Trace(err)
 	}
 	defer Stmt.Close()
 
-	//MetricsCount := telegrafMetricsLen * clickhouseMetricLen
-	var wg sync.WaitGroup
+	//var wg sync.WaitGroup
 	for _, metrs := range batchMetrics {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for _, metr := range metrs {
-				if _, err := Stmt.Exec(
-					metr.Name,
-					clickhouse.Array(metr.Tags),
-					metr.Val,
-					metr.Ts,
-					metr.Updated,
-				); err != nil {
-					fmt.Println(err.Error())
-				}
+		//wg.Add(1)
+		//go func() {
+		//defer wg.Done()
+		for _, metr := range metrs {
+			if _, err := Stmt.Exec(
+				metr.Name,
+				clickhouse.Array(metr.Tags),
+				metr.Val,
+				metr.Ts,
+				metr.Updated,
+			); err != nil {
+				fmt.Println(err.Error())
 			}
-		}()
+		}
+		//}()
 	}
 
-	wg.Wait()
+	//wg.Wait()
 
+	// commit transaction.
 	if err := Tx.Commit(); err != nil {
 		return errors.Trace(err)
 	}
