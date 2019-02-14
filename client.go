@@ -9,7 +9,6 @@ import (
 	"github.com/influxdata/telegraf"
 	"github.com/juju/errors"
 	"github.com/kshvakov/clickhouse"
-	"github.com/kshvakov/clickhouse/lib/data"
 )
 
 type ClickhouseClient struct {
@@ -147,7 +146,7 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	}
 
 	// Prepare stmt
-	stmtInsertData := fmt.Sprintf("INSERT INTO %s.%s(name,tags,val,ts,updated) VALUES(?,?,?,?,?)", c.Database, c.TableName)
+	stmtInsertData := fmt.Sprintf("INSERT INTO %s.%s(name,tags,val,ts) VALUES(?,?,?,?)", c.Database, c.TableName)
 	Stmt, err := Tx.Prepare(stmtInsertData)
 	if err != nil {
 		log.Println(stmtInsertData)
@@ -167,7 +166,6 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 				clickhouse.Array(metr.Tags),
 				metr.Val,
 				metr.Ts,
-				metr.Updated,
 			); err != nil {
 				fmt.Println(err.Error())
 			}
@@ -185,7 +183,7 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	return err
 }
 
-// batch write
+/* batch write
 func writeBatch(block *data.Block, metrics clickhouseMetrics, count int) {
 	block.Reserve()
 	block.NumRows += uint64(count)
@@ -210,3 +208,4 @@ func writeBatch(block *data.Block, metrics clickhouseMetrics, count int) {
 		block.WriteDateTime(5, metrics[row].Updated)
 	}
 }
+*/
