@@ -153,6 +153,9 @@ func writeBatch(block *data.Block, metric clickhouseMetric, count int) {
 	block.Reserve()
 	block.NumRows += uint64(count)
 
+	fmt.Println(metric)
+	fmt.Println(block)
+
 	for row := 0; row < count; row++ {
 		block.WriteString(0, metric.Date)
 	}
