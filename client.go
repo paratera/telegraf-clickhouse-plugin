@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"database/sql"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/influxdata/telegraf"
@@ -142,26 +143,26 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	defer Stmt.Close()
 
 	//MetricsCount := telegrafMetricsLen * clickhouseMetricLen
-	//var wg sync.WaitGroup
+	var wg sync.WaitGroup
 	for _, metrs := range batchMetrics {
-		//wg.Add(1)
-		//go func() {
-		//defer wg.Done()
-		for _, metr := range metrs {
-			if _, err := Stmt.Exec(
-				metr.Name,
-				clickhouse.Array(metr.Tags),
-				metr.Val,
-				metr.Ts,
-				metr.Updated,
-			); err != nil {
-				fmt.Println(err.Error())
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for _, metr := range metrs {
+				if _, err := Stmt.Exec(
+					metr.Name,
+					clickhouse.Array(metr.Tags),
+					metr.Val,
+					metr.Ts,
+					metr.Updated,
+				); err != nil {
+					fmt.Println(err.Error())
+				}
 			}
-		}
-		//}()
+		}()
 	}
 
-	//wg.Wait()
+	wg.Wait()
 
 	if err := Tx.Commit(); err != nil {
 		return errors.Trace(err)
