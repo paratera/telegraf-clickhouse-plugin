@@ -2,7 +2,6 @@ package clickhouse
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/influxdata/telegraf"
@@ -38,18 +37,21 @@ func newClickhouse() *ClickhouseClient {
 func (c *ClickhouseClient) Connect() error {
 	var err error
 
-	c.DBI = fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&read_timeout=%d&write_timeout=%d&alt_hosts=%s&compress=%d",
-		c.Addr,
-		c.Port,
-		c.User,
-		c.Password,
-		c.Database,
-		10,
-		20,
-		strings.Join(c.Hosts, ","),
-		0,
-	)
-	c.db, err = clickhouse.OpenDirect(c.DBI)
+	/*
+		c.DBI = fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&read_timeout=%d&write_timeout=%d&alt_hosts=%s&compress=%d",
+			c.Addr,
+			c.Port,
+			c.User,
+			c.Password,
+			c.Database,
+			10,
+			20,
+			strings.Join(c.Hosts, ","),
+			0,
+		)
+	*/
+
+	c.db, err = clickhouse.OpenDirect("tcp://172.18.10.100:9000?username=&debug=true&compress=0")
 	if err != nil {
 		return errors.Trace(err)
 	}
