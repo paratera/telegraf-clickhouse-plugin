@@ -93,7 +93,6 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	err = nil
 	var batchMetrics []clickhouseMetrics
 
-	var clickhouseMetricLen int
 	//telegrafMetricsLen := len(metrics)
 
 	for _, metric := range metrics {
