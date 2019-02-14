@@ -1,4 +1,4 @@
-# Telegraf output plugin for sending metrics to clickhouse
+# Telegraf output plugin 
 -----
 
 ## 1. How to use
