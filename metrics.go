@@ -37,7 +37,7 @@ func newClickhouseMetrics(metric telegraf.Metric) *clickhouseMetrics {
 
 		tmpCurrentTime = time.Now()
 
-		tmpClickhouseMetric.Name = fmt.Sprint("%s_%s", metric.Name(), field.Key)
+		tmpClickhouseMetric.Name = fmt.Sprintf("%s_%s", metric.Name(), field.Key)
 
 		tmpFiledValue := convertField(field.Value)
 		if tmpFiledValue == nil {

@@ -134,7 +134,7 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	stmt := fmt.Sprintf("INSERT INTO telegraf.metrics(name,tags,val,ts,updated) VALUES(?,?,?,?,?)")
+	stmt := fmt.Sprintf("INSERT INTO %s.%s(name,tags,val,ts,updated) VALUES(?,?,?,?,?)", c.Database, c.TableName)
 	Stmt, err := Tx.Prepare(stmt)
 	if err != nil {
 		return errors.Trace(err)
