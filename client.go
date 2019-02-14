@@ -91,12 +91,16 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	err = nil
 	var batchMetrics []clickhouseMetrics
 
+	var clickhouseMetricLen int
+	telegrafMetricsLen := len(metrics)
+
 	for _, metric := range metrics {
 		//table := c.Database + "." + metric.Name()
 		//table := c.database + "." + c.tableName
 		var tmpClickhouseMetrics clickhouseMetrics
 
 		tmpClickhouseMetrics = *newClickhouseMetrics(metric)
+		clickhouseMetricLen = len(tmpClickhouseMetrics)
 
 		batchMetrics = append(batchMetrics, tmpClickhouseMetrics)
 	}
@@ -119,19 +123,19 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 
 		}
 	*/
-	fmt.Println(batchMetrics)
+	//fmt.Println(batchMetrics)
+
 	c.db.Begin()
 	stmt := fmt.Sprintf("INSERT INTO %s.%s(date,name,tags,val,ts,updated) VALUES(?,?,?,?,?,?)", c.Database, c.TableName)
 	c.db.Prepare(stmt)
 
-	block, err := c.db.Block()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	blocks := []*data.Block{block, block.Copy()}
-
-	fmt.Println("block_len=", len(blocks))
+	/*
+		block, err := c.db.Block()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	*/
+	fmt.Println("MetricsCount = ", telegrafMetricsLen*clickhouseMetricLen)
 
 	return err
 }
