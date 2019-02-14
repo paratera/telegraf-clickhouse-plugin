@@ -7,7 +7,7 @@
 
 ```bash
 # mkdir -p telegraf/plugins/outputs/clickhouse
-# cp clickhouse.go telegraf/plugins/outputs/clickhouse
+# cp client.go metrics.go register.go telegraf/plugins/outputs/clickhouse
 ```
 
 ### 1.2. Enable this plugin
@@ -27,6 +27,20 @@ Append plugin into plugins/outpus/all/all.go
 ```bash
 # cd telegraf
 # make
+```
+
+### 1.4. update telegraf.conf
+
+append follow lines.
+
+```ini
+[[outputs.clickhouse]]
+        addr = "172.18.10.100"
+        port = 9000
+        user = ""
+        database = "telegraf"
+        tablename = "metrics"
+        compress = "false"
 ```
 
 ### 2. Donate
