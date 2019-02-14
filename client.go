@@ -156,18 +156,18 @@ func writeBatch(block *data.Block, metric clickhouseMetric, count int) {
 	}
 
 	for row := 0; row < count; row++ {
-		block.WriteString(0, metric.Name)
+		block.WriteString(1, metric.Name)
 	}
 	for row := 0; row < count; row++ {
-		block.WriteArray(0, clickhouse.Array(metric.Tags))
+		block.WriteArray(2, clickhouse.Array(metric.Tags))
 	}
 	for row := 0; row < count; row++ {
-		block.WriteFloat64(0, metric.Val)
+		block.WriteFloat64(3, metric.Val)
 	}
 	for row := 0; row < count; row++ {
-		block.WriteDateTime(0, metric.Ts)
+		block.WriteDateTime(4, metric.Ts)
 	}
 	for row := 0; row < count; row++ {
-		block.WriteDateTime(0, metric.Updated)
+		block.WriteDateTime(5, metric.Updated)
 	}
 }
