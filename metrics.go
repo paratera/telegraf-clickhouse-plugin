@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/influxdata/telegraf"
@@ -37,7 +38,11 @@ func newClickhouseMetrics(metric telegraf.Metric) *clickhouseMetrics {
 
 		tmpCurrentTime = time.Now()
 
-		tmpClickhouseMetric.Name = fmt.Sprintf("%s_%s", metric.Name(), field.Key)
+		if strings.Compare(field.Key, "gauge") == 0 {
+			tmpClickhouseMetric.Name = fmt.Sprintf("%s", metric.Name())
+		} else {
+			tmpClickhouseMetric.Name = fmt.Sprintf("%s_%s", metric.Name(), field.Key)
+		}
 
 		tmpFiledValue := convertField(field.Value)
 		if tmpFiledValue == nil {
