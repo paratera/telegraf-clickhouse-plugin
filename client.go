@@ -124,7 +124,7 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 
 	// create table
 	stmtCreateTable := fmt.Sprintf(`
-	CREATE TABLE %s.%s(
+	CREATE TABLE IF NOT EXISTS %s.%s(
 		date Date DEFAULT toDate(ts),
 		name String,
 		tags Array(String),
