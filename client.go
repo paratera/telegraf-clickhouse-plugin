@@ -145,6 +145,10 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 		}
 	}
 
+	if err := c.db.Commit(); err != nil {
+		return errors.Trace(err)
+	}
+
 	return err
 }
 
