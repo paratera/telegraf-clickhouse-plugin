@@ -8,6 +8,7 @@ import (
 	"github.com/influxdata/telegraf"
 	"github.com/juju/errors"
 	"github.com/kshvakov/clickhouse"
+	"github.com/kshvakov/clickhouse/lib/data"
 )
 
 type ClickhouseClient struct {
@@ -119,5 +120,44 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 		}
 	*/
 	fmt.Println(batchMetrics)
+	c.db.Begin()
+	stmt := fmt.Sprintf("INSERT INTO %s.%s(date,name,tags,val,ts,updated) VALUES(?,?,?,?,?,?)", c.Database, c.TableName)
+	c.db.Prepare(stmt)
+
+	block, err := c.db.Block()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	blocks := []*data.Block{block, block.Copy()}
+
+	fmt.Println("block_len=", len(blocks))
+
 	return err
+}
+
+// batch write
+func writeBatch(block *data.Block, metric clickhouseMetric, count int) {
+	block.Reserve()
+	block.NumRows += uint64(count)
+
+	for row := 0; row < count; row++ {
+		block.WriteString(0, metric.Date)
+	}
+
+	for row := 0; row < count; row++ {
+		block.WriteString(0, metric.Name)
+	}
+	for row := 0; row < count; row++ {
+		block.WriteArray(0, clickhouse.Array(metric.Tags))
+	}
+	for row := 0; row < count; row++ {
+		block.WriteFloat64(0, metric.Val)
+	}
+	for row := 0; row < count; row++ {
+		block.WriteDateTime(0, metric.Ts)
+	}
+	for row := 0; row < count; row++ {
+		block.WriteDateTime(0, metric.Updated)
+	}
 }
