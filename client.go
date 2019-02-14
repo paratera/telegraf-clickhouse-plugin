@@ -102,7 +102,6 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 		var tmpClickhouseMetrics clickhouseMetrics
 
 		tmpClickhouseMetrics = *newClickhouseMetrics(metric)
-		clickhouseMetricLen = len(tmpClickhouseMetrics)
 
 		batchMetrics = append(batchMetrics, tmpClickhouseMetrics)
 	}
@@ -141,11 +140,9 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 		//wg.Add(1)
 		//go func() {
 		//defer wg.Done()
-		for _, metr := range metrs {
-			writeBatch(block, metr, clickhouseMetricLen)
-			if err := c.db.WriteBlock(block); err != nil {
-				fmt.Println(err.Error())
-			}
+		writeBatch(block, metrs, len(metrs))
+		if err := c.db.WriteBlock(block); err != nil {
+			fmt.Println(err.Error())
 		}
 		//}()
 	}
@@ -160,30 +157,27 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 }
 
 // batch write
-func writeBatch(block *data.Block, metric clickhouseMetric, count int) {
+func writeBatch(block *data.Block, metrics clickhouseMetrics, count int) {
 	block.Reserve()
 	block.NumRows += uint64(count)
 
-	fmt.Println(metric)
-	fmt.Println(block)
-
 	for row := 0; row < count; row++ {
-		block.WriteString(0, metric.Date)
+		block.WriteString(0, metrics[row].Date)
 	}
 
 	for row := 0; row < count; row++ {
-		block.WriteString(1, metric.Name)
+		block.WriteString(1, metrics[row].Name)
 	}
 	for row := 0; row < count; row++ {
-		block.WriteArray(2, clickhouse.Array(metric.Tags))
+		block.WriteArray(2, clickhouse.Array(metrics[row].Tags))
 	}
 	for row := 0; row < count; row++ {
-		block.WriteFloat64(3, metric.Val)
+		block.WriteFloat64(3, metrics[row].Val)
 	}
 	for row := 0; row < count; row++ {
-		block.WriteDateTime(4, metric.Ts)
+		block.WriteDateTime(4, metrics[row].Ts)
 	}
 	for row := 0; row < count; row++ {
-		block.WriteDateTime(5, metric.Updated)
+		block.WriteDateTime(5, metrics[row].Updated)
 	}
 }
