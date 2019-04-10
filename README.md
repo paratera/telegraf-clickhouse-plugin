@@ -1,6 +1,8 @@
 # Telegraf output plugin 
 -----
 
+**This is not an official Paratera product**
+
 ## 1. How to use
 
 ## 1.1. add plugin files to telegraf repository.
