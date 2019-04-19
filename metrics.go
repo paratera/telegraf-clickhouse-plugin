@@ -11,12 +11,12 @@ import (
 type (
 	// a metric of clickhouse
 	clickhouseMetric struct {
-		Date    string    `json:"date" db:"date"`
-		Name    string    `json:"name" db:"name"`
-		Tags    []string  `json:"tags" db:"tags"`
-		Val     float64   `json:"val" db:"val"`
-		Ts      time.Time `json:"ts" db:"ts"`
-		Updated time.Time `json:"updated" db:"updated"`
+		Date    string                 `json:"date" db:"date"`
+		Name    string                 `json:"name" db:"name"`
+		Tags    map[string]interface{} `json:"tags" db:"tags"`
+		Val     float64                `json:"val" db:"val"`
+		Ts      time.Time              `json:"ts" db:"ts"`
+		Updated time.Time              `json:"updated" db:"updated"`
 	}
 
 	// metrics of clickhouse
@@ -32,8 +32,7 @@ func newClickhouseMetrics(metric telegraf.Metric) *clickhouseMetrics {
 	for _, field := range metric.FieldList() {
 		// tmp variables
 		var tmpClickhouseMetric clickhouseMetric
-		var tmpTags string
-		var tmpFieldTag string
+		tags := make(map[string]interface{})
 		var tmpCurrentTime time.Time
 
 		tmpCurrentTime = time.Now()
@@ -46,13 +45,12 @@ func newClickhouseMetrics(metric telegraf.Metric) *clickhouseMetrics {
 
 		tmpFiledValue := convertField(field.Value)
 		if tmpFiledValue == nil {
-			tmpFieldTag = fmt.Sprintf("%s=%s", field.Key, field.Value.(string))
-			tmpClickhouseMetric.Tags = append(tmpClickhouseMetric.Tags, tmpFieldTag)
+			tags[field.Key] = field.Value.(string)
 			for _, value := range metric.TagList() {
-				tmpTags = fmt.Sprintf("%s=%s", value.Key, value.Value)
-				tmpClickhouseMetric.Tags = append(tmpClickhouseMetric.Tags, tmpTags)
+				tags[value.Key] = value.Value
 			}
 
+			tmpClickhouseMetric.Tags = tags
 			tmpClickhouseMetric.Val = float64(0)
 			tmpClickhouseMetric.Ts = metric.Time()
 			tmpClickhouseMetric.Updated = tmpCurrentTime
@@ -60,12 +58,11 @@ func newClickhouseMetrics(metric telegraf.Metric) *clickhouseMetrics {
 		} else {
 
 			for _, value := range metric.TagList() {
-				tmpTags = fmt.Sprintf("%s=%s", value.Key, value.Value)
-				tmpClickhouseMetric.Tags = append(tmpClickhouseMetric.Tags, tmpTags)
+				tags[value.Key] = value.Value
 			}
 
 			tmpClickhouseMetric.Val = tmpFiledValue.(float64)
-
+			tmpClickhouseMetric.Tags = tags
 			tmpClickhouseMetric.Ts = metric.Time()
 			tmpClickhouseMetric.Updated = tmpCurrentTime
 

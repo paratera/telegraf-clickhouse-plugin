@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -78,7 +79,7 @@ Schema:
 > CREATE TABLE telegraf.metrics(
 	date Date DEFAULT toDate(ts),
 	name String,
-	tags Array(String),
+	tags String,
 	val Float64,
 	ts DateTime,
 	updated DateTime DEFAULT now()
@@ -126,7 +127,7 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	CREATE TABLE IF NOT EXISTS %s.%s(
 		date Date DEFAULT toDate(ts),
 		name String,
-		tags Array(String),
+		tags String,
 		val Float64,
 		ts DateTime,
 		updated DateTime DEFAULT now()
@@ -155,25 +156,19 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	}
 	defer Stmt.Close()
 
-	//var wg sync.WaitGroup
 	for _, metrs := range batchMetrics {
-		//wg.Add(1)
-		//go func() {
-		//defer wg.Done()
 		for _, metr := range metrs {
+			tags, _ := json.Marshal(metr.Tags)
 			if _, err := Stmt.Exec(
 				metr.Name,
-				clickhouse.Array(metr.Tags),
+				string(tags),
 				metr.Val,
 				metr.Ts,
 			); err != nil {
 				fmt.Println(err.Error())
 			}
 		}
-		//}()
 	}
-
-	//wg.Wait()
 
 	// commit transaction.
 	if err := Tx.Commit(); err != nil {
