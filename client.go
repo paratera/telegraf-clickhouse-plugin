@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/influxdata/telegraf"
 	"github.com/juju/errors"
@@ -20,12 +19,12 @@ type ClickhouseClient struct {
 	Addr         string `toml:"addr"`
 	Port         int64  `toml:"port"`
 	User         string `toml:"user"`
+	Password     string `toml:"password"`
 	Database     string `toml:"database"`
 	TableName    string `toml:"tablename"`
-	IsCompressed string `toml:"compress"`
+	WriteTimeout int64  `toml:"write_timeout"`
 
-	readTimeout  time.Duration
-	writeTimeout time.Duration
+	Debug bool `toml:"debug"`
 
 	db *sql.DB
 }
@@ -36,26 +35,20 @@ func newClickhouse() *ClickhouseClient {
 
 func (c *ClickhouseClient) Connect() error {
 	var err error
-	var compress string
 
-	switch c.IsCompressed {
-	case "0":
-		compress = "false"
-	case "1":
-		compress = "true"
-	case "on":
-		compress = "true"
-	case "off":
-		compress = "false"
-	default:
-		compress = "false"
-	}
-	c.DBI = fmt.Sprintf("tcp://%s:%d?username=%s&compress=%s&debug=true",
+	c.DBI = fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&write_timeout=%d&debug=%t",
 		c.Addr,
 		c.Port,
 		c.User,
-		compress,
+		c.Password,
+		c.Database,
+		c.WriteTimeout,
+		c.Debug,
 	)
+
+	if c.Debug {
+		log.Println("DBI=", c.DBI)
+	}
 
 	c.db, err = sql.Open("clickhouse", c.DBI)
 	if err != nil {
@@ -84,18 +77,27 @@ Schema:
 	ts DateTime,
 	updated DateTime DEFAULT now()
 ) ENGINE=MergeTree(date,(name,tags,ts),8192)
-addr = 127.0.0.1
-port = 9000
-user = ""
-database = ""
-tablename = ""
-compress = 0
+
+telegraf.conf
+[[outputs.clickhouse]]
+    user = "default"
+    password = ""
+    addr = 127.0.0.1
+    port = 9000
+    database = ""
+	tablename = ""
+	write_timeout = 10
+	debug = true
 `
 }
 
 func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	err = nil
 	var batchMetrics []clickhouseMetrics
+
+	if c.Debug {
+		log.Println("Recv Telegraf Metrics:", metrics)
+	}
 
 	for _, metric := range metrics {
 		var tmpClickhouseMetrics clickhouseMetrics
@@ -105,20 +107,31 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 		batchMetrics = append(batchMetrics, tmpClickhouseMetrics)
 	}
 
+	if c.Debug {
+		log.Println("Replace Metrics to Clickhouse Format ", batchMetrics)
+	}
+
 	if err = c.db.Ping(); err != nil {
-		if exception, ok := err.(*clickhouse.Exception); ok {
-			log.Printf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
-		} else {
-			log.Println(err)
+		if c.Debug {
+			if exception, ok := err.(*clickhouse.Exception); ok {
+				log.Printf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
+			} else {
+				log.Println(err)
+			}
 		}
 		return errors.Trace(err)
 	}
 
 	// create database
 	stmtCreateDatabase := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", c.Database)
+	if c.Debug {
+		log.Println("Create Database: ", stmtCreateDatabase)
+	}
 	_, err = c.db.Exec(stmtCreateDatabase)
 	if err != nil {
-		log.Fatal(err)
+		if c.Debug {
+			log.Println(err.Error())
+		}
 		return errors.Trace(err)
 	}
 
@@ -133,16 +146,27 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 		updated DateTime DEFAULT now()
 	) ENGINE=MergeTree(date,(name,tags,ts),8192)
 	`, c.Database, c.TableName)
+
+	if c.Debug {
+		log.Println("Create Table :", stmtCreateTable)
+	}
 	_, err = c.db.Exec(stmtCreateTable)
 	if err != nil {
-		log.Fatal(err)
+		if c.Debug {
+			log.Fatal(err.Error())
+		}
 		return errors.Trace(err)
 	}
 
 	// start transaction
 	Tx, err := c.db.Begin()
+	if c.Debug {
+		log.Println("Starting Transaction.")
+	}
 	if err != nil {
-		log.Fatal(err)
+		if c.Debug {
+			log.Fatal(err.Error())
+		}
 		return errors.Trace(err)
 	}
 
@@ -150,8 +174,9 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	stmtInsertData := fmt.Sprintf("INSERT INTO %s.%s(name,tags,val,ts) VALUES(?,?,?,?)", c.Database, c.TableName)
 	Stmt, err := Tx.Prepare(stmtInsertData)
 	if err != nil {
-		log.Println(stmtInsertData)
-		log.Println(err)
+		if c.Debug {
+			log.Println(err.Error())
+		}
 		return errors.Trace(err)
 	}
 	defer Stmt.Close()
@@ -159,13 +184,23 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 	for _, metrs := range batchMetrics {
 		for _, metr := range metrs {
 			tags, _ := json.Marshal(metr.Tags)
+			if c.Debug {
+				log.Println(
+					"Name:", metr.Name,
+					"Tags:", string(tags),
+					"Val:", metr.Val,
+					"Ts:", metr.Ts,
+				)
+			}
 			if _, err := Stmt.Exec(
 				metr.Name,
 				string(tags),
 				metr.Val,
 				metr.Ts,
 			); err != nil {
-				fmt.Println(err.Error())
+				if c.Debug {
+					fmt.Println(err.Error())
+				}
 			}
 		}
 	}
@@ -175,32 +210,9 @@ func (c *ClickhouseClient) Write(metrics []telegraf.Metric) (err error) {
 		return errors.Trace(err)
 	}
 
+	if c.Debug {
+		log.Println("Transaction Commit")
+	}
+
 	return err
 }
-
-/* batch write
-func writeBatch(block *data.Block, metrics clickhouseMetrics, count int) {
-	block.Reserve()
-	block.NumRows += uint64(count)
-
-	for row := 0; row < count; row++ {
-		block.WriteString(0, metrics[row].Date)
-	}
-
-	for row := 0; row < count; row++ {
-		block.WriteString(1, metrics[row].Name)
-	}
-	for row := 0; row < count; row++ {
-		block.WriteArray(2, clickhouse.Array(metrics[row].Tags))
-	}
-	for row := 0; row < count; row++ {
-		block.WriteFloat64(3, metrics[row].Val)
-	}
-	for row := 0; row < count; row++ {
-		block.WriteDateTime(4, metrics[row].Ts)
-	}
-	for row := 0; row < count; row++ {
-		block.WriteDateTime(5, metrics[row].Updated)
-	}
-}
-*/
