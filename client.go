@@ -36,12 +36,11 @@ func newClickhouse() *ClickhouseClient {
 func (c *ClickhouseClient) Connect() error {
 	var err error
 
-	c.DBI = fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&write_timeout=%d&debug=%t",
+	c.DBI = fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&write_timeout=%d&debug=%t",
 		c.Addr,
 		c.Port,
 		c.User,
 		c.Password,
-		c.Database,
 		c.WriteTimeout,
 		c.Debug,
 	)
@@ -84,8 +83,8 @@ telegraf.conf
     password = ""
     addr = 127.0.0.1
     port = 9000
-    database = ""
-	tablename = ""
+    database = "telegraf"
+	tablename = "metrics"
 	write_timeout = 10
 	debug = true
 `
