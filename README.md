@@ -37,12 +37,14 @@ append follow lines.
 
 ```ini
 [[outputs.clickhouse]]
-        addr = "172.18.10.100"
+	user = "default"
+	password = ""
+        addr = "127.0.0.1"
         port = 9000
-        user = ""
         database = "telegraf"
         tablename = "metrics"
-        compress = "false"
+	write_timeout = 10
+	debug = false
 ```
 
 ### 2. Donate
