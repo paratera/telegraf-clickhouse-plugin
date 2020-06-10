@@ -8,7 +8,7 @@ import (
 
 	"github.com/influxdata/telegraf"
 	"github.com/juju/errors"
-	"github.com/kshvakov/clickhouse"
+	"github.com/ClickHouse/clickhouse-go"
 )
 
 type ClickhouseClient struct {
